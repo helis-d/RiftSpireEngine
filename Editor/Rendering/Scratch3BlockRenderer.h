@@ -62,19 +62,19 @@ namespace RiftSpire
         // Standard block dimensions
         constexpr float MIN_BLOCK_WIDTH   = 48.0f;
         constexpr float MIN_BLOCK_HEIGHT  = 40.0f;
-        constexpr float CORNER_RADIUS     = 4.0f;
+        constexpr float CORNER_RADIUS     = 6.0f;   // Softer corners
         
         // Puzzle notch specifications (THE KEY TO SCRATCH LOOK)
-        constexpr float NOTCH_WIDTH       = 15.0f;
-        constexpr float NOTCH_HEIGHT      = 4.0f;
+        constexpr float NOTCH_WIDTH       = 12.0f;  // More elegant notch
+        constexpr float NOTCH_HEIGHT      = 5.0f;   // More prominent
         constexpr float NOTCH_START_X     = 15.0f;  // Offset from left edge
         
         // Hat block specifications
-        constexpr float HAT_HEIGHT        = 20.0f;  // Height of the arc
-        constexpr float HAT_WIDTH_RATIO   = 0.8f;   // Width of arc relative to block
+        constexpr float HAT_HEIGHT        = 16.0f;  // More compact hat
+        constexpr float HAT_WIDTH_RATIO   = 0.7f;   // Width of arc relative to block
         
         // C-Shape specifications
-        constexpr float C_ARM_WIDTH       = 16.0f;  // Width of the left arm
+        constexpr float C_ARM_WIDTH       = 20.0f;  // Wider C-arm
         constexpr float C_MOUTH_MIN_H     = 24.0f;  // Minimum inner height
         constexpr float C_FOOTER_HEIGHT   = 24.0f;  // Height of bottom bar
         
@@ -83,11 +83,17 @@ namespace RiftSpire
         constexpr float BOOLEAN_POINT     = 10.0f;
         
         // Visual
-        constexpr float STROKE_WIDTH      = 1.0f;
-        constexpr float SHADOW_OFFSET_Y   = 1.0f;
+        constexpr float STROKE_WIDTH      = 1.5f;   // More prominent border
+        constexpr float SHADOW_OFFSET_Y   = 2.0f;   // Deeper shadow
         constexpr float ICON_SIZE         = 16.0f;
-        constexpr float TEXT_SIZE         = 12.0f;
+        constexpr float TEXT_SIZE         = 13.0f;  // More readable
         constexpr float PADDING           = 8.0f;
+        
+        // Gradient & Effects (Premium look)
+        constexpr float GRADIENT_STRENGTH = 0.15f;  // 15% color difference
+        constexpr float SHADOW_BLUR       = 4.0f;   // Shadow softness
+        constexpr float INNER_GLOW_ALPHA  = 0.12f;  // Inner highlight
+        constexpr float BOTTOM_DARKEN     = 0.85f;  // Bottom edge darkening
     }
     
     //=========================================================================
@@ -248,6 +254,12 @@ namespace RiftSpire
         
         /// Fill and stroke the current path
         void FillAndStroke(unsigned int fillColor);
+        
+        /// Fill with vertical gradient for premium 3D look
+        void FillWithGradient(float x, float y, float h, unsigned int fillColor);
+        
+        /// Draw subtle inner highlight at top edge
+        void DrawInnerHighlight(float x, float y, float w);
         
         /// Draw label text with optional icon
         void DrawLabel(

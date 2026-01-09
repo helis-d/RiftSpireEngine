@@ -37,10 +37,24 @@ namespace RiftSpire
         unsigned int b = fillColor & 0xFF;
         unsigned int a = (fillColor >> 24) & 0xFF;
         
-        // Darken by 20%
-        r = static_cast<unsigned int>(r * 0.8f);
-        g = static_cast<unsigned int>(g * 0.8f);
-        b = static_cast<unsigned int>(b * 0.8f);
+        // Darken by 25% for more contrast
+        r = static_cast<unsigned int>(r * 0.75f);
+        g = static_cast<unsigned int>(g * 0.75f);
+        b = static_cast<unsigned int>(b * 0.75f);
+        
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+    
+    static unsigned int GetDarkenedColor(unsigned int fillColor, float factor)
+    {
+        unsigned int r = (fillColor >> 16) & 0xFF;
+        unsigned int g = (fillColor >> 8) & 0xFF;
+        unsigned int b = fillColor & 0xFF;
+        unsigned int a = (fillColor >> 24) & 0xFF;
+        
+        r = static_cast<unsigned int>(r * factor);
+        g = static_cast<unsigned int>(g * factor);
+        b = static_cast<unsigned int>(b * factor);
         
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
@@ -321,14 +335,46 @@ namespace RiftSpire
     {
         if (!m_Vg) return;
         
-        // Fill
+        // Fill with solid color (gradient applied in DrawBlock for positioned gradient)
         nvgFillColor(m_Vg, ColorFromU32(fillColor));
         nvgFill(m_Vg);
         
-        // Stroke (20% darker)
+        // Stroke (25% darker for more contrast)
         unsigned int strokeColor = GetStrokeColor(fillColor);
         nvgStrokeColor(m_Vg, ColorFromU32(strokeColor));
         nvgStrokeWidth(m_Vg, STROKE_WIDTH);
+        nvgStroke(m_Vg);
+    }
+    
+    void Scratch3BlockRenderer::FillWithGradient(float x, float y, float h, unsigned int fillColor)
+    {
+        if (!m_Vg) return;
+        
+        // Create vertical gradient: lighter top -> darker bottom
+        NVGcolor topColor = ColorFromU32(fillColor);
+        NVGcolor bottomColor = ColorFromU32(GetDarkenedColor(fillColor, BOTTOM_DARKEN));
+        
+        NVGpaint gradient = nvgLinearGradient(m_Vg, x, y, x, y + h, topColor, bottomColor);
+        nvgFillPaint(m_Vg, gradient);
+        nvgFill(m_Vg);
+        
+        // Stroke (25% darker for more contrast)
+        unsigned int strokeColor = GetStrokeColor(fillColor);
+        nvgStrokeColor(m_Vg, ColorFromU32(strokeColor));
+        nvgStrokeWidth(m_Vg, STROKE_WIDTH);
+        nvgStroke(m_Vg);
+    }
+    
+    void Scratch3BlockRenderer::DrawInnerHighlight(float x, float y, float w)
+    {
+        if (!m_Vg) return;
+        
+        // Subtle top-edge highlight for 3D effect
+        nvgBeginPath(m_Vg);
+        nvgMoveTo(m_Vg, x + CORNER_RADIUS + NOTCH_WIDTH + 5, y + 2);
+        nvgLineTo(m_Vg, x + w - CORNER_RADIUS, y + 2);
+        nvgStrokeColor(m_Vg, nvgRGBA(255, 255, 255, static_cast<int>(255 * INNER_GLOW_ALPHA)));
+        nvgStrokeWidth(m_Vg, 1.0f);
         nvgStroke(m_Vg);
     }
     
@@ -336,10 +382,19 @@ namespace RiftSpire
     {
         if (!m_Vg) return;
         
-        // Scratch 3.0 uses a subtle 1px bottom shadow
+        // Enhanced shadow with box gradient for blur effect
+        NVGpaint shadowPaint = nvgBoxGradient(m_Vg,
+            x, y + SHADOW_OFFSET_Y,   // Offset down
+            w, h,
+            CORNER_RADIUS + 2.0f,     // Corner radius
+            SHADOW_BLUR,              // Blur/feather
+            nvgRGBA(0, 0, 0, 50),     // Inner color (shadow)
+            nvgRGBA(0, 0, 0, 0)       // Outer color (fade out)
+        );
+        
         nvgBeginPath(m_Vg);
-        nvgRoundedRect(m_Vg, x, y + SHADOW_OFFSET_Y, w, h, CORNER_RADIUS);
-        nvgFillColor(m_Vg, nvgRGBA(0, 0, 0, 25));  // Very subtle
+        nvgRect(m_Vg, x - 6, y - 2, w + 12, h + 12);
+        nvgFillPaint(m_Vg, shadowPaint);
         nvgFill(m_Vg);
     }
     
@@ -395,7 +450,7 @@ namespace RiftSpire
         
         nvgSave(m_Vg);
         
-        // Subtle shadow
+        // Enhanced shadow with blur
         DrawBlockShadow(x, y, w, h);
         
         // Build path based on shape
@@ -415,8 +470,14 @@ namespace RiftSpire
                 break;
         }
         
-        // Fill and stroke
-        FillAndStroke(color);
+        // Fill with gradient for premium 3D look
+        FillWithGradient(x, y, h, color);
+        
+        // Inner highlight for extra polish (skip for hat blocks - top is curved)
+        if (shape != Scratch3Shape::HAT)
+        {
+            DrawInnerHighlight(x, y, w);
+        }
         
         // Draw label
         float labelY = (shape == Scratch3Shape::HAT) ? y + HAT_HEIGHT : y;
@@ -442,22 +503,33 @@ namespace RiftSpire
         
         float totalH = headerHeight + mouthHeight + footerHeight;
         
-        // Shadow
+        // Enhanced shadow
         DrawBlockShadow(x, y, w, totalH);
         
         // Build C-shape path
         BuildCShapePath(x, y, w, headerHeight, mouthHeight, footerHeight);
         
-        // Fill and stroke
-        FillAndStroke(color);
+        // Fill with gradient for premium 3D look
+        FillWithGradient(x, y, totalH, color);
         
-        // Draw inner mouth background (slightly darker)
-        nvgBeginPath(m_Vg);
+        // Inner highlight
+        DrawInnerHighlight(x, y, w);
+        
+        // Draw inner mouth background with subtle gradient
         float innerX = x + C_ARM_WIDTH;
         float innerY = y + headerHeight;
         float innerW = w - C_ARM_WIDTH - CORNER_RADIUS;
+        
+        NVGpaint mouthPaint = nvgBoxGradient(m_Vg,
+            innerX, innerY, innerW, mouthHeight,
+            CORNER_RADIUS, 2.0f,
+            nvgRGBA(0, 0, 0, 45),   // Inner (darker)
+            nvgRGBA(0, 0, 0, 20)    // Outer (lighter)
+        );
+        
+        nvgBeginPath(m_Vg);
         nvgRoundedRect(m_Vg, innerX, innerY, innerW, mouthHeight, CORNER_RADIUS);
-        nvgFillColor(m_Vg, nvgRGBA(0, 0, 0, 30));  // Subtle darkening
+        nvgFillPaint(m_Vg, mouthPaint);
         nvgFill(m_Vg);
         
         // Label in header
@@ -479,15 +551,22 @@ namespace RiftSpire
         // Reporters are pill-shaped (fully rounded ends)
         float r = h / 2.0f;
         
+        // Shadow
+        DrawBlockShadow(x, y, w, h);
+        
         nvgBeginPath(m_Vg);
         nvgRoundedRect(m_Vg, x, y, w, h, r);
         
-        FillAndStroke(color);
+        // Gradient fill
+        FillWithGradient(x, y, h, color);
         
-        // Centered text
+        // Centered text with shadow
         nvgFontSize(m_Vg, TEXT_SIZE);
-        nvgFillColor(m_Vg, nvgRGBA(255, 255, 255, 255));
+        nvgFillColor(m_Vg, nvgRGBA(0, 0, 0, 50));
         nvgTextAlign(m_Vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        nvgText(m_Vg, x + w / 2.0f + 0.5f, y + h / 2.0f + 0.5f, label, nullptr);
+        
+        nvgFillColor(m_Vg, nvgRGBA(255, 255, 255, 255));
         nvgText(m_Vg, x + w / 2.0f, y + h / 2.0f, label, nullptr);
         
         nvgRestore(m_Vg);
@@ -503,6 +582,9 @@ namespace RiftSpire
         
         nvgSave(m_Vg);
         
+        // Shadow
+        DrawBlockShadow(x, y, w, h);
+        
         // Boolean blocks are hexagonal (pointed ends)
         float pointW = h / 2.0f;
         
@@ -515,12 +597,16 @@ namespace RiftSpire
         nvgLineTo(m_Vg, x, y + h / 2.0f);
         nvgClosePath(m_Vg);
         
-        FillAndStroke(color);
+        // Gradient fill
+        FillWithGradient(x, y, h, color);
         
-        // Centered text
+        // Centered text with shadow
         nvgFontSize(m_Vg, TEXT_SIZE);
-        nvgFillColor(m_Vg, nvgRGBA(255, 255, 255, 255));
+        nvgFillColor(m_Vg, nvgRGBA(0, 0, 0, 50));
         nvgTextAlign(m_Vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        nvgText(m_Vg, x + w / 2.0f + 0.5f, y + h / 2.0f + 0.5f, label, nullptr);
+        
+        nvgFillColor(m_Vg, nvgRGBA(255, 255, 255, 255));
         nvgText(m_Vg, x + w / 2.0f, y + h / 2.0f, label, nullptr);
         
         nvgRestore(m_Vg);
